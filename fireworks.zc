@@ -1,4 +1,4 @@
-// OS prefixes for build directives don't work yet, so you will have to choose nad uncomment them manually
+// OS prefixes for build directives don't work yet, so you will have to choose and uncomment them manually
 
 // windows:
 // //> include: ./raylib-win
