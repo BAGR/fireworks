@@ -1,0 +1,148 @@
+// OS prefixes for build directives don't work yet, so you will have to choose nad uncomment them manually
+
+// windows:
+// //> include: ./raylib-win
+// //> lib: ./raylib-win
+// //> link: -lraylibdll -lm
+
+// linux:
+// //> include: ./raylib-linux
+// //> lib: ./raylib-linux
+// //> link: -lraylib -lm
+
+import "raylib.h"
+import "math.h"
+
+def MAX_PARTICLES = 10000;
+def GRAVITY = 0.05f;
+def FRICTION = 0.98f;
+def RADIUS = 5.0f;
+def PARTICLES_PER_BOOM = 100;
+
+// Define the Particle struct
+struct Particle {
+    position: Vector2;
+    velocity: Vector2;
+    color: Color;
+    alpha: float;
+    size: float;
+    life: float;
+}
+
+// Global arrays for particles
+let particles: Particle[MAX_PARTICLES];
+let particleCount: int = 0;
+
+// Function to update particle physics
+fn UpdateParticles() {
+    for i in 0..particleCount {
+        // Apply gravity and friction
+        particles[i].velocity.y += GRAVITY;
+        particles[i].velocity.x *= FRICTION;
+        particles[i].velocity.y *= FRICTION;
+
+        // Update position
+        particles[i].position.x += particles[i].velocity.x;
+        particles[i].position.y += particles[i].velocity.y;
+
+        // Update life and alpha
+        particles[i].life -= 0.01f;
+        particles[i].size = particles[i].life * RADIUS;
+        particles[i].alpha = particles[i].life * 255.0f;
+    }
+
+    // Remove dead particles (Move semantics)
+    for i in particleCount-1..0 step -1 {
+        if particles[i].life <= 0.0f {
+            particles[i] = particles[particleCount - 1];
+            particleCount -= 1;
+        }
+    }
+}
+
+// Function to draw particles
+fn DrawParticles() {
+    for i in 0..particleCount {
+        let drawColor = ColorAlpha(particles[i].color, particles[i].alpha);
+        DrawCircleV(particles[i].position, particles[i].size, drawColor);
+    }
+}
+
+// Function to launch a firework explosion
+fn LaunchFirework() {
+    if particleCount < MAX_PARTICLES - PARTICLES_PER_BOOM {
+        // Start from bottom center
+        let startPos = Vector2 {
+            x: GetRandomValue(50, (float) GetScreenWidth() - 50),
+            y: GetRandomValue(50, (float) GetScreenHeight() / 2)
+        };
+
+        let color = Color {
+            r: GetRandomValue(50, 255),
+            g: GetRandomValue(50, 255),
+            b: GetRandomValue(50, 255),
+            a: 255
+        };
+
+        for i in 0..PARTICLES_PER_BOOM {
+            // Random angle and speed
+            let angle = (float) GetRandomValue(0, 360) * DEG2RAD;
+            let speed = (float) GetRandomValue(5, 12) * 0.2f;
+
+            // Create particle
+            let p = Particle {
+                position: startPos,
+                velocity: Vector2 {
+                    x: cos(angle) * speed,
+                    y: sin(angle) * speed
+                },
+                color: color,
+                alpha: 255.0f,
+                size: RADIUS,
+                life: 1.0f
+            };
+
+            particles[particleCount] = p;
+            particleCount += 1;
+        }
+    }
+}
+
+fn main() {
+    InitWindow(1280, 720, "Zen-C Fireworks");
+    SetTargetFPS(60);
+
+    while (!WindowShouldClose()) {
+        // Update
+        let chance = 10;
+        if (IsKeyDown(KEY_SPACE)) {
+            chance = 90;
+        }
+
+        if (GetRandomValue(0, 100) < chance) {
+            LaunchFirework();
+        }
+
+        UpdateParticles();
+
+        // Draw
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        let color = Color {
+            r: GetRandomValue(50, 255),
+            g: GetRandomValue(50, 255),
+            b: GetRandomValue(50, 255),
+            a: 255
+        };
+        DrawText("4K stars in 2 months!", 100, GetScreenHeight() - 150, 100, color);
+        DrawText("Hold SPACE to launch", 20, GetScreenHeight() - 20, 16, DARKGRAY);
+
+        DrawParticles();
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+    return 0;
+}
