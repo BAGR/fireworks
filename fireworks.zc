@@ -1,22 +1,22 @@
-// OS prefixes for build directives don't work yet, so you will have to choose and uncomment them manually
+// linux:
+//> linux: include: ./raylib-linux
+//> linux: lib: ./raylib-linux
+//> linux: link: -lraylib -lm
 
 // windows:
-// //> include: ./raylib-win
-// //> lib: ./raylib-win
-// //> link: -lraylibdll -lm
-
-// linux:
-// //> include: ./raylib-linux
-// //> lib: ./raylib-linux
-// //> link: -lraylib -lm
+//> windows: include: ./raylib-win
+//> windows: lib: ./raylib-win
+//> windows: link: -lraylibdll -lm
 
 import "raylib.h"
-import "math.h"
+import "std/vec.zc"
+import "std/math.zc"
 
 def MAX_PARTICLES = 10000;
-def GRAVITY = 0.05f;
-def FRICTION = 0.98f;
-def RADIUS = 5.0f;
+def GRAVITY = 100.f;
+def PARTICLE_MAX_SPEED = 300.f;
+def PARTICLE_FRICTION = 0.5f;
+def PARTICLE_RADIUS = 5.0f;
 def PARTICLES_PER_BOOM = 100;
 
 // Define the Particle struct
@@ -35,19 +35,22 @@ let particleCount: int = 0;
 
 // Function to update particle physics
 fn UpdateParticles() {
+    let dt = GetFrameTime();
+
     for i in 0..particleCount {
         // Apply gravity and friction
-        particles[i].velocity.y += GRAVITY;
-        particles[i].velocity.x *= FRICTION;
-        particles[i].velocity.y *= FRICTION;
+        particles[i].velocity.x = particles[i].velocity.x / (1 + PARTICLE_FRICTION * dt);
+        particles[i].velocity.y = particles[i].velocity.y / (1 + PARTICLE_FRICTION * dt);
+        particles[i].velocity.y += GRAVITY * dt;
+        particles[i].velocity.y = Math::min(particles[i].velocity.y, PARTICLE_MAX_SPEED);
 
         // Update position
-        particles[i].position.x += particles[i].velocity.x;
-        particles[i].position.y += particles[i].velocity.y;
+        particles[i].position.x += particles[i].velocity.x * dt;
+        particles[i].position.y += particles[i].velocity.y * dt;
 
         // Update life and alpha
-        particles[i].life -= 0.01f;
-        particles[i].size = particles[i].life * RADIUS;
+        particles[i].life -= dt;
+        particles[i].size = particles[i].life * PARTICLE_RADIUS;
         particles[i].alpha = particles[i].life * 255.0f;
     }
 
@@ -87,18 +90,18 @@ fn LaunchFirework() {
         for i in 0..PARTICLES_PER_BOOM {
             // Random angle and speed
             let angle = (float) GetRandomValue(0, 360) * DEG2RAD;
-            let speed = (float) GetRandomValue(5, 12) * 0.2f;
+            let speed = (float) GetRandomValue(20, 100) / 100 * PARTICLE_MAX_SPEED;
 
             // Create particle
             let p = Particle {
                 position: startPos,
                 velocity: Vector2 {
-                    x: cos(angle) * speed,
-                    y: sin(angle) * speed
+                    x: Math::cos(angle) * speed,
+                    y: Math::sin(angle) * speed
                 },
                 color: color,
                 alpha: 255.0f,
-                size: RADIUS,
+                size: PARTICLE_RADIUS,
                 life: 1.0f
             };
 
@@ -109,8 +112,13 @@ fn LaunchFirework() {
 }
 
 fn main() {
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MINIMIZED | FLAG_WINDOW_MAXIMIZED | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
     InitWindow(1280, 720, "Zen-C Fireworks");
-    SetTargetFPS(60);
+    SetWindowMinSize(1280, 720);
+    MaximizeWindow();
+
+    let maxFPS = GetMonitorRefreshRate(GetCurrentMonitor());
+    // SetTargetFPS(maxFPS);
 
     while (!WindowShouldClose()) {
         // Update
@@ -128,21 +136,24 @@ fn main() {
         // Draw
         BeginDrawing();
         ClearBackground(BLACK);
+        
+        DrawText(f"{GetFPS()} / {maxFPS} FPS | {GetFrameTime()} dt | {particleCount} obj", 5, 5, 16, DARKGRAY);
+        DrawText("Hold SPACE to launch", 20, GetScreenHeight() - 20, 16, DARKGRAY);
 
+        def banner_text = "Zen-C Community Edition!";
+        def banner_size = 85;
         let color = Color {
             r: GetRandomValue(50, 255),
             g: GetRandomValue(50, 255),
             b: GetRandomValue(50, 255),
             a: 255
         };
-        DrawText("4K stars in 2 months!", 100, GetScreenHeight() - 150, 100, color);
-        DrawText("Hold SPACE to launch", 20, GetScreenHeight() - 20, 16, DARKGRAY);
+        DrawText(banner_text, Math::floor((GetScreenWidth() - MeasureText(banner_text, banner_size)) / 2), GetScreenHeight() - 150, banner_size, color);
 
         DrawParticles();
 
         EndDrawing();
     }
-
     CloseWindow();
     return 0;
 }
